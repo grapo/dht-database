@@ -132,10 +132,19 @@ class Hash(object):
     def __repr__(self):
         return "H " + self.hash
 
+    def __hash__(self):
+        return long(self.hash, 16)
+
+    def __cmp__(self, other):
+        return self.__gt__(other) - self.__lt__(other)
+
+    def __eq__(self, other):
+        return self.hash == other.hash
+
+    
 
 class KeyNotHere(Exception):
-    pass
-
+    pass 
 class Node(object):
     def __init__(self, start, stop, next=None, prev=None, db=MyDict()):
         self.start = start # start to takze adres maszyny
@@ -216,6 +225,5 @@ if __name__ == '__main__':
         act = act.next
         if act == n:
             break;
-
 
 
