@@ -1,18 +1,6 @@
 from twisted.protocols import amp
 from node import KeyNotHere 
-
-class Get(amp.Command):
-    arguments = [('key', amp.String())]
-    response = [('value', amp.String())]
-    errors = {KeyNotHere: 'KEY_NOT_HERE'}
-
-class Find(amp.Command):
-    arguments = [('key', amp.String())]
-    response = [('node', amp.String())]
-
-class RevealYourself(amp.Command):
-    arguments = []
-    response = [('hash', amp.String())]
+import commands
 
 class Proto(amp.AMP):
     me = None
@@ -23,16 +11,17 @@ class Proto(amp.AMP):
 
     def get(self, key):
         print 'Request for key %s' % key
-    #    return {'value': }
-    Get.responder(get)
+        return {'value': 'ok'}
+    commands.Get.responder(get)
 
     def find(self, key):
         pass
-    Find.responder(find)
+    commands.Find.responder(find)
 
     def reveal(self):
+    print "Intorducing myself: ", self.me
         return {'hash': self.me}
-    RevealYourself.responder(reveal)
+    commands.RevealYourself.responder(reveal)
 
 if __name__ == '__main__':
     from twisted.internet import reactor
@@ -43,7 +32,7 @@ if __name__ == '__main__':
     args = parse_server()
     h = Hash(sha1(args.address).hexdigest())
     n = Node(h, h.prev())
-    Proto.init(n)
+    Proto.init(str(n.start))
     pf = Factory()
     pf.protocol = Proto
     reactor.listenTCP(args.port, pf)

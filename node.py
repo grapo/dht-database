@@ -64,7 +64,6 @@
 # przy samej komunikacji można wymyślić jakiś protokół albo 
 # spróbować wykonać RPC
 
-
 class RouteTable(object):
     """Struktura danych zawierajaca adresy poznanych Node sluzaca do szybkiego
        wyszukania przyblizonego polozenia klucza
@@ -84,36 +83,42 @@ class Hash(object):
     """
     # obecna implementacja działa dla kluczy hashowanych sha1 (160 bitów)
     length = 40
-    start = length * "0"
-    stop = length * "f"
+    start = long(0)
+    stop = long(2^161-1)
+    max = long(2^161-1)
 
     def __init__(self, hs):
         self.hash = hs
+    
+    @classmethod
+    def from_hex(cls, h):
+        if len(h) == cls.length:
+            return cls(long(h, 16))
+        else:
+            raise TypeError
+
+    @classmethod
+    def from_str(cls, s):
+        return cls.from_hex(hashlib.sha1(str(s)).hexdigest())
 
     def prev(self):
         """ Poprzedni hash"""
-        if self.hash == self.start:
-            return Hash(self.stop)
+        if self.hash == 0:
+            return Hash(self.max)
         else:
-            s = hex(long(self.hash, 16) - 1)[2:-1]
-            # hash musi mieć odpowiednią długość self.length
-            s = (self.length - len(s)) * "0" + s 
-            return Hash(s)
+            return Hash(self.hash - 1)
 
     def next(self):
         """ Następny hash"""
-        if self.hash == self.start:
-            return Hash(self.start)
+        if self.hash == max:
+            return long(0)
         else:
-            s = hex(long(self.hash, 16) + 1)[2:-1]
-            # hash musi mieć odpowiednią długość self.length
-            s = (self.length - len(s)) * "0" + s
-            return Hash(s)
+            return Hash(self.hash + 1)
 
     def beetwen(self, start, stop):
         """ Czy hash znajduje się pomiędzy hashami start i stop """
         if start > stop :
-            return start <= self or self  <= stop 
+            return start <= self or self <= stop 
         else:
             return start <= self <= stop
 
@@ -130,10 +135,10 @@ class Hash(object):
         return self.hash < other.hash
 
     def __repr__(self):
-        return "H " + self.hash
+        return "0x%.40x" % self.hash
 
     def __hash__(self):
-        return long(self.hash, 16)
+        return self.hash
 
     def __cmp__(self, other):
         return self.__gt__(other) - self.__lt__(other)
@@ -210,11 +215,11 @@ if __name__ == '__main__':
     import hashlib
 
     nodes = []
-    h = Hash(hashlib.sha1(str(random.random())).hexdigest())
+    h = Hash.from_str(random.random())
     n = Node(h, h.prev())
     nodes.append(n)
     for x in range(100):
-        h = Hash(hashlib.sha1(str(random.random())).hexdigest())
+        h = Hash.from_str(random.random())
         node = n.find_node(h)
         nodes.append(node.add_node(h))
     act = n
