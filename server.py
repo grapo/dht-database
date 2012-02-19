@@ -48,7 +48,11 @@ class Proto(amp.AMP):
     def find(self, key):
         key = loads(key)
         node = self.node.find_node(key)
-        return {'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
+        my_key = False
+        if node.hash == self.node.start:
+            my_key = True
+        print "in find", node
+        return {'node' : dumps(node.hash), "address" : node.address, "port" : node.port, 'my_key' : my_key}
     commands.FindNode.responder(find)
     
     def new_node(self, key, address, port):
@@ -81,9 +85,11 @@ class Server(object):
         self.port = port
         
         self.key = Hash.from_str(address)
+        print "Serwer init KEY", self.key
         self.pf = ProtoFactory(str(self.key))
         if next_address and next_port:
-            # server bedzie wlaczony do aktualnej sieci    
+            # server bedzie wlaczony do aktualnej sieci 
+            print "serwer init make_server"
             self.make_server(next_address, next_port)
         else:
             self.node = Node(self.address, self.port, self.key, self.key.prev())
@@ -92,6 +98,7 @@ class Server(object):
     def find_node(self, key, address=None, port=None):
         # find node nie moze byc wywolany jesli self.node jest node ktorego szukamy
         #
+        print "find node"
         if (address is None or port is None):
             if self.node is None:
                 return # moze jakis wyjatek tu trzeba rzucic
@@ -104,8 +111,12 @@ class Server(object):
         d = ClientCreator(reactor, amp.AMP).connectTCP(address, port)
         d.addCallback(lambda p: p.callRemote(commands.FindNode, key=dumps(key)))
         def callback(res):
+            print "Callback in find_node"
             res['node'] = loads(res['node'])
-            if res['node'] == key:
+            print "res", res
+            print key
+            if res['my_key']:
+                print "XXX"
                 return res
             else:
                 return self.find_node(key, res['address'], res['port'])
@@ -117,6 +128,7 @@ class Server(object):
         d = self.find_node(self.key, address, port)
         # po znalezieniu odpowiedniego wezła
         def callback(res):
+            print "Znalazłem serwer"
             # podłączamy się do niego
             d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
             # oznajmiamy mu, że będziemy jego następnikiem

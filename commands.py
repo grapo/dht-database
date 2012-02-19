@@ -13,7 +13,7 @@ class Set(amp.Command):
 
 class FindNode(amp.Command):
     arguments = [('key', amp.String())]
-    response = [('node', amp.String()), ('address', amp.String()), ('port', amp.Integer())]
+    response = [('node', amp.String()), ('address', amp.String()), ('port', amp.Integer()), ('my_key', amp.Boolean()) ]
 
 class NewNode(amp.Command):
     arguments = [('key', amp.String()), ('address', amp.String()), ('port', amp.Integer())]
