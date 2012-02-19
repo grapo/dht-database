@@ -137,7 +137,7 @@ class Server(object):
                 # dostajemy jego db, i nastepnika
                 self.node = Node(self.address, self.port, 
                 self.key, loads(res2['stop']),
-                    Neighbor(res2['node'], res2['address'], res2['port']), 
+                    Neighbor(loads(res2['node']), res2['address'], res2['port']), 
                     Neighbor(res['node'], res['address'], res['port']),
                     loads(res2['db']))
                 # dodajemy node do ProtoFactory bo tego mu brakuje
