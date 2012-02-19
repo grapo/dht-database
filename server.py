@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from hashlib import sha1
+import hashlib
+
 from pickle import loads, dumps
 
 from twisted.internet import reactor
@@ -22,29 +23,66 @@ class Proto(amp.AMP):
     def init(cls, me):
         cls.me = me
         
-    def __init__(self, node, *args, **kwargs):
+    def __init__(self, node, server, *args, **kwargs):
         print "init"
         self.node = node
+        self.server = server
         super(Proto, self).__init__(*args, **kwargs)
 
     def connectionMade(self):
         print "New Connection"
 
     def get(self, key):
-        print 'Request for key %s' % key
-        print key
-        key = Hash.from_hex(key)
-        val = self.node.find(key)
-        return {'value': val}
+        hex_key = hashlib.sha1(str(key)).hexdigest()
+        hash_key = Hash.from_str(hex_key)
+        node = self.node.find_node(hash_key)
+        if node.hash == self.node.start: # to my mamy ten klucz
+            print "Pobrano klucz"
+            val = self.node.find(hash_key)
+            print "XX", val
+            return {'value': val}
+        else:
+            d = self.server.find_node(hash_key, node.address, node.port) # szukamy odpowiedniego serwera, zwracamy deffer
+            def callback(res): # res zawiera dane serwera na ktorym moze byc klucz
+                # podłączamy się do niego
+                print "Znaleziono serwer do get", key
+                d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
+                d1.addCallback(lambda p: p.callRemote(commands.Get, key=key))
+
+                def trapError(result):
+                    result.trap(Exception)
+                    print "Błąd!: {0}".format(result.type)
+                    raise result.type()
+                d1.addErrback(trapError)
+                
+                return d1 # deffer, który zawierać będzie wynik metody get na właściwym serwerze
+
+            d.addCallback(callback)
+            return d
     commands.Get.responder(get)
     
     def set(self, key, value):
-        print 'Request to set key %s' % key
-        key = Hash.from_hex(key)
-        val = self.node.set(key, value)
-        return {'status': val}
+        hex_key = hashlib.sha1(str(key)).hexdigest()
+        hash_key = Hash.from_str(hex_key)
+        node = self.node.find_node(hash_key)
+        if node.hash == self.node.start: # to my będziemy przechowywać ten klucz
+            print "Zapisano klucz-wartość"
+            val = self.node.set(hash_key, value)
+            print "XX", val
+            return {'status': val}
+        else:
+            d = self.server.find_node(hash_key, node.address, node.port) # szukamy odpowiedniego serwera, zwracamy deffer
+            def callback(res): # res zawiera dane serwera na ktorym moze byc klucz
+                # podłączamy się do niego
+                print "Znaleziono serwer do set", key, value
+                d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
+                d1.addCallback(lambda p: p.callRemote(commands.Set, key=key, value=value))
+                return d1 # deffer, który zawierać będzie wynik metody set na właściwym serwerze
+            
+            d.addCallback(callback)
+            return d
     commands.Set.responder(set)
-
+    
     def find(self, key):
         key = loads(key)
         node = self.node.find_node(key)
@@ -57,11 +95,14 @@ class Proto(amp.AMP):
     
     def new_node(self, key, address, port):
         key = loads(key)
+        print key
         node, db, stop = self.node.add_node(key, address, port)
         return {'db' : dumps(db), 'stop' : dumps(stop), 'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
     commands.NewNode.responder(new_node)
 
     def new_prev(self, node, address, port):
+        print "NEW_PREV", node
+        node = loads(node)
         self.node.new_prev(node, address, port)
         return {'status': True}
     commands.NewPrev.responder(new_prev)
@@ -72,12 +113,13 @@ class Proto(amp.AMP):
     commands.RevealYourself.responder(reveal)
 
 class ProtoFactory(Factory):
-    def __init__(self, me, node=None):
+    def __init__(self, me, server, node=None):
         self.me = me
         self.node = node
+        self.server = server
     def buildProtocol(self, addr):
         Proto.me = self.me
-        return Proto(self.node)
+        return Proto(self.node, self.server)
 
 class Server(object):
     def __init__(self, address, port, next_address=None, next_port=None):
@@ -86,7 +128,7 @@ class Server(object):
         
         self.key = Hash.from_str(address)
         print "Serwer init KEY", self.key
-        self.pf = ProtoFactory(str(self.key))
+        self.pf = ProtoFactory(str(self.key), self)
         if next_address and next_port:
             # server bedzie wlaczony do aktualnej sieci 
             print "serwer init make_server"
@@ -135,9 +177,11 @@ class Server(object):
             d1.addCallback(lambda p: p.callRemote(commands.NewNode, key=dumps(self.key), address=self.address, port=self.port))
             def new_node(res2):
                 # dostajemy jego db, i nastepnika
+                print "NEW_NODE", loads(res2['node']),
+                print "NEW NODE2", res['node']
                 self.node = Node(self.address, self.port, 
                 self.key, loads(res2['stop']),
-                    Neighbor(res2['node'], res2['address'], res2['port']), 
+                    Neighbor(loads(res2['node']), res2['address'], res2['port']), 
                     Neighbor(res['node'], res['address'], res['port']),
                     loads(res2['db']))
                 # dodajemy node do ProtoFactory bo tego mu brakuje

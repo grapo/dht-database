@@ -155,6 +155,7 @@ class Hash(object):
     
 class Neighbor(object):
     def __init__(self, hash, address, port):
+        assert isinstance(hash, Hash)
         self.hash = hash
         self.address = address
         self.port = port
@@ -169,10 +170,12 @@ class KeyNotHere(Exception):
 
 class Node(object):
     def __init__(self, address, port, start, stop, next=None, prev=None, db=MyDict()):
+        assert isinstance(start, Hash)
+        assert isinstance(stop, Hash)
         self.start = start # start to takze adres maszyny
         self.stop = stop
         self.db = db
-        
+        print "Node init", start, stop, self.db 
         self.im = Neighbor(start, address, port)
         
         if next:
@@ -188,6 +191,7 @@ class Node(object):
         #self.route_table = RouteTable([next, prev])
 
     def set(self, key, value):
+        assert isinstance(key, Hash)
         if key.beetwen(self.start, self.stop):
             self.db[key] = value
             return True
@@ -197,6 +201,7 @@ class Node(object):
     
     def find(self, key):
         """ Zwraca wartość pod danym kluczem """
+        assert isinstance(key, Hash)
         if key.beetwen(self.start, self.stop):
             return self.db[key]
         else:
@@ -204,6 +209,7 @@ class Node(object):
     
     def find_node(self, key):
         """ Zwraca węzeł na którym znajduję się dany klucz """
+        assert isinstance(key, Hash)
         if key.beetwen(self.start, self.stop):
             return self.im
         else:
@@ -214,6 +220,7 @@ class Node(object):
             Dodaje nowy węzeł-syn do danego węzła i kopiuje
             do niego część kluczy
         """
+        assert isinstance(key, Hash)
         if key.beetwen(self.start, self.stop):
             n = Neighbor(key, address, port)
             old_next = self.next
