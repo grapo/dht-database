@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 from hashlib import sha1
+from pickle import loads, dumps
 
 from twisted.internet import reactor
 from twisted.protocols import amp
@@ -11,7 +12,7 @@ from twisted.internet.protocol import ClientCreator
 
 
 from args import parse_server
-from node import Node, Hash
+from node import Node, Hash, Neighbor
 import commands
 
 class Proto(amp.AMP):
@@ -45,19 +46,21 @@ class Proto(amp.AMP):
     commands.Set.responder(set)
 
     def find(self, key):
+        key = loads(key)
         node = self.node.find_node(key)
-        return {'node' : node.hash, "address" : node.address, "port" : node.port}
+        return {'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
     commands.FindNode.responder(find)
     
     def new_node(self, key, address, port):
+	key = loads(key)
         node, db, stop = self.node.add_node(key, address, port)
-        return {'db' : db, 'stop' : stop, 'node' : node.hash, "address" : node.address, "port" : node.port}
-    commands.NewNode.responder(find)
+        return {'db' : dumps(db), 'stop' : dumps(stop), 'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
+    commands.NewNode.responder(new_node)
 
-    def new_prev(self, key, address, port):
-        self.node.new_prev(key, address, port)
-        return
-    commands.NewPrev.responder(find)
+    def new_prev(self, node, address, port):
+        self.node.new_prev(node, address, port)
+	return {'status': True}
+    commands.NewPrev.responder(new_prev)
 
     def reveal(self):
         print "Intorducing myself: ", self.me
@@ -77,7 +80,7 @@ class Server(object):
         self.address = address
         self.port = port
         
-        self.key = Hash.from_hex(sha1(address).hexdigest())
+        self.key = Hash.from_str(address)
         self.pf = ProtoFactory(str(self.key))
         if next_address and next_port:
             # server bedzie wlaczony do aktualnej sieci    
@@ -99,8 +102,9 @@ class Server(object):
         # naszym następnikiem
         #
         d = ClientCreator(reactor, amp.AMP).connectTCP(address, port)
-        d.addCallback(lambda p: p.callRemote(commands.FindNode, key=key))
+        d.addCallback(lambda p: p.callRemote(commands.FindNode, key=dumps(key)))
         def callback(res):
+            res['node'] = loads(res['node'])
             if res['node'] == key:
                 return res
             else:
@@ -116,21 +120,20 @@ class Server(object):
             # podłączamy się do niego
             d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
             # oznajmiamy mu, że będziemy jego następnikiem
-            d1.addCallback(lambda p: p.callRemote(commands.NewNode, self.key, self.address, self.port))
+            d1.addCallback(lambda p: p.callRemote(commands.NewNode, key=dumps(self.key), address=self.address, port=self.port))
             def new_node(res2):
                 # dostajemy jego db, i nastepnika
-                self.node = Node(self.key,
-                                Hash(res2['stop']), 
-                                (Hash(res2['node']), res2['address'], res2['port']),
-                                (Hash(res['node']), res['address'], res['key']),
-                                res2['db'])
-
+                self.node = Node(self.address, self.port, 
+			self.key, loads(res2['stop']),
+			Neighbor(res2['node'], res2['address'], res2['port']), 
+			Neighbor(res['node'], res['address'], res['port']),
+			loads(res2['db']))
                 # dodajemy node do ProtoFactory bo tego mu brakuje
                 self.pf.node = self.node
                 
                 # kontaktujemy się z następnikiem i informujemy, że jesteśmy jego poprzednikiem
                 d2 = ClientCreator(reactor, amp.AMP).connectTCP(res2['address'], res2['port'])
-                d2.addCallback(lambda p: p.callRemote(commands.NewPrev, self.key, self.address, self.port))
+                d2.addCallback(lambda p: p.callRemote(commands.NewPrev, node=dumps(self.key), address=self.address, port=self.port))
 
             d1.addCallback(new_node)
 

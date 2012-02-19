@@ -176,12 +176,12 @@ class Node(object):
         self.im = Neighbor(start, address, port)
         
         if next:
-            self.next = Neighbor(*next)
+            self.next = next
         else:
             self.next = self.im
         
         if prev:    
-            self.prev = Neighbor(*prev)
+            self.prev = prev
         else:
             self.next = self.im
 
@@ -238,9 +238,9 @@ class Node(object):
     #    self.stop = node.stop
     #    self.next.new_prev(self)
     
-    def new_prev(self, node):
+    def new_prev(self, node, address, port):
         """ Przełącza się na nowego poprzednika """
-        self.prev = Neighbor(*node)
+        self.prev = Neighbor(node, address, port)
 
     def __repr__(self):
         return "<{0}>  P : {1} N : {2}".format(self.start, self.prev.start, self.next.start)

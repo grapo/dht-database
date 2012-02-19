@@ -24,7 +24,7 @@ class NewNode(amp.Command):
 class NewPrev(amp.Command):
     arguments = [('node', amp.String()), ('address', amp.String()),
                 ('port', amp.Integer())]
-    response = []
+    response = [('status', amp.Boolean())]
 
 class RevealYourself(amp.Command):
     arguments = []
