@@ -64,6 +64,8 @@
 # przy samej komunikacji można wymyślić jakiś protokół albo 
 # spróbować wykonać RPC
 
+import hashlib
+
 class RouteTable(object):
     """Struktura danych zawierajaca adresy poznanych Node sluzaca do szybkiego
        wyszukania przyblizonego polozenia klucza
@@ -74,6 +76,10 @@ class MyDict(dict):
     """Naiwna implementacja dzielonej tablicy hashującej"""
     def getall(self, start, stop):
         return self
+
+    def __missing__(self, key):
+        raise KeyNotHere()
+
 
 class Hash(object):
     """
@@ -111,7 +117,7 @@ class Hash(object):
     def next(self):
         """ Następny hash"""
         if self.hash == max:
-            return long(0)
+            return Hash(long(0))
         else:
             return Hash(self.hash + 1)
 
@@ -147,63 +153,94 @@ class Hash(object):
         return self.hash == other.hash
 
     
+class Neighbor(object):
+    def __init__(self, hash, address, port):
+        self.hash = hash
+        self.address = address
+        self.port = port
+    
+    def unpack(self):
+        return (self.hash, self.address, self.port)
+
 
 class KeyNotHere(Exception):
     pass 
+
+
 class Node(object):
-    def __init__(self, start, stop, next=None, prev=None, db=MyDict()):
+    def __init__(self, address, port, start, stop, next=None, prev=None, db=MyDict()):
         self.start = start # start to takze adres maszyny
         self.stop = stop
         self.db = db
-        self.next = next or self
-        self.prev = prev or self
-        self.next.new_prev(self)
+        
+        self.im = Neighbor(start, address, port)
+        
+        if next:
+            self.next = Neighbor(*next)
+        else:
+            self.next = self.im
+        
+        if prev:    
+            self.prev = Neighbor(*prev)
+        else:
+            self.next = self.im
+
         #self.route_table = RouteTable([next, prev])
 
+    def set(self, key, value):
+        if key.beetwen(self.start, self.stop):
+            self.db[key] = value
+            return True
+        else:
+            return False
+        
+    
     def find(self, key):
         """ Zwraca wartość pod danym kluczem """
         if key.beetwen(self.start, self.stop):
-            return self.db.get(key, None)
+            return self.db[key]
         else:
-            return KeyNotHere()
+            raise KeyNotHere()
     
     def find_node(self, key):
         """ Zwraca węzeł na którym znajduję się dany klucz """
         if key.beetwen(self.start, self.stop):
-            return self
+            return self.im
         else:
-            return self.next.find_node(key)
+            return self.next
 
-    def add_node(self, nodeid):
+    def add_node(self, key, address, port):
         """ 
             Dodaje nowy węzeł-syn do danego węzła i kopiuje
             do niego część kluczy
         """
-        if nodeid.beetwen(self.start, self.stop):
-            n = Node(nodeid, self.stop, self.next, self)
+        if key.beetwen(self.start, self.stop):
+            n = Neighbor(key, address, port)
+            old_next = next
             self.next = n
-            self.copy_db(n, nodeid, self.stop)
-            self.stop = nodeid.prev()
-            return n
+            new_db = self.db # TODO: wezel powinien dostac tylko czesc bazy danych a nie cala
+            old_stop = self.stop
+            self.stop = key.prev()
+            return old_next, new_db, old_stop 
 
-    def copy_db(self, node, start, stop):
-        """ Kopiuje do węzła node klucze z przedziału start - stop """
-        n.db.update(self.db.getall(start, stop))
+    #def copy_db(self, node, start, stop):
+    #    """ Kopiuje do węzła node klucze z przedziału start - stop """
+    #    n.db.update(self.db.getall(start, stop))
 
-    def shutdown(self):
-        """ Wyłącza węzeł """
-        self.copy_db(self.prev, self.start, self.stop)
-        self.prev.new_next(self, self.next)
+    #def shutdown(self):
+    #    """ Wyłącza węzeł """
+    #    self.copy_db(self.prev, self.start, self.stop)
+    #    self.prev.new_next(self, self.next)
 
-    def new_next(self, node, next_node):
-        """ Przełącza się na nowego następnika, uaktualnia klucze """
-        self.next = next_node
-        self.stop = node.stop
-        self.next.new_prev(self)
+    #def new_next(self, node, next_node):
+    #    """ Przełącza się na nowego następnika, uaktualnia klucze """
+    #    self.next = Neighbor(*next_node)
+    #    self.stop = node.stop
+    #    self.next.new_prev(self)
     
     def new_prev(self, node):
         """ Przełącza się na nowego poprzednika """
-        self.prev = node
+        self.prev = Neighbor(*node)
 
     def __repr__(self):
         return "<{0}>  P : {1} N : {2}".format(self.start, self.prev.start, self.next.start)
@@ -212,7 +249,6 @@ class Node(object):
 
 if __name__ == '__main__':
     import random
-    import hashlib
 
     nodes = []
     h = Hash.from_str(random.random())

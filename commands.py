@@ -6,9 +6,25 @@ class Get(amp.Command):
     response = [('value', amp.String())]
     errors = {KeyNotHere: 'KEY_NOT_HERE'}
 
-class Find(amp.Command):
+class Set(amp.Command):
+    arguments = [('key', amp.String()),
+                 ('value', amp.String())]
+    response = [('status', amp.Boolean())]
+
+class FindNode(amp.Command):
     arguments = [('key', amp.String())]
-    response = [('node', amp.String())]
+    response = [('node', amp.String()), ('address', amp.String()), ('port', amp.Integer())]
+
+class NewNode(amp.Command):
+    arguments = [('key', amp.String()), ('address', amp.String()), ('port', amp.Integer())]
+    response = [('db', amp.String()),('stop', amp.String()), 
+                ('node', amp.String()), ('address', amp.String()),
+                ('port', amp.Integer())]
+
+class NewPrev(amp.Command):
+    arguments = [('node', amp.String()), ('address', amp.String()),
+                ('port', amp.Integer())]
+    response = []
 
 class RevealYourself(amp.Command):
     arguments = []
