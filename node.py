@@ -75,7 +75,7 @@ class RouteTable(object):
 class MyDict(dict):
     """Naiwna implementacja dzielonej tablicy hashującej"""
     def getall(self, start, stop):
-        return self
+        return MyDict(filter(lambda (k, _): k.beetwen(start, stop), self.viewitems()))
 
     def __missing__(self, key):
         raise KeyNotHere()
@@ -216,9 +216,9 @@ class Node(object):
         """
         if key.beetwen(self.start, self.stop):
             n = Neighbor(key, address, port)
-            old_next = next
+            old_next = self.next
             self.next = n
-            new_db = self.db # TODO: wezel powinien dostac tylko czesc bazy danych a nie cala
+            new_db = self.db.getall(key, self.stop)
             old_stop = self.stop
             self.stop = key.prev()
             return old_next, new_db, old_stop 
@@ -249,22 +249,16 @@ class Node(object):
 
 if __name__ == '__main__':
     import random
+    from args import parse_server
 
-    nodes = []
+    args = parse_server()
     h = Hash.from_str(random.random())
-    n = Node(h, h.prev())
-    nodes.append(n)
-    for x in range(100):
-        h = Hash.from_str(random.random())
-        node = n.find_node(h)
-        nodes.append(node.add_node(h))
-    act = n
-    for x in range(2,90):
-        nodes[x].shutdown()
-    while True:
-        print act
-        act = act.next
-        if act == n:
-            break;
-
-
+    n = Node(args.address, args.port, h, h.prev())
+    k1 = Hash.from_str(random.random())
+    k2 = k1.next()
+    k3 = k2.next()
+    print "Adding key: ", n.set(k1, "Key 1")
+    print "Adding key: ", n.set(k2, "Key 2")
+    print "Adding key: ", n.set(k3, "Key 3")
+    print "Finding key: ", n.find(k2)
+    print "Getting database: ", n.add_node(k2, args.address, args.port)
