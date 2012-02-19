@@ -24,13 +24,9 @@ class Proto(amp.AMP):
         cls.me = me
         
     def __init__(self, node, server, *args, **kwargs):
-        print "init"
         self.node = node
         self.server = server
         super(Proto, self).__init__(*args, **kwargs)
-
-    def connectionMade(self):
-        print "New Connection"
 
     def get(self, key):
         hex_key = hashlib.sha1(str(key)).hexdigest()
@@ -39,19 +35,16 @@ class Proto(amp.AMP):
         if node.hash == self.node.start: # to my mamy ten klucz
             print "Pobrano klucz"
             val = self.node.find(hash_key)
-            print "XX", val
             return {'value': val}
         else:
             d = self.server.find_node(hash_key, node.address, node.port) # szukamy odpowiedniego serwera, zwracamy deffer
             def callback(res): # res zawiera dane serwera na ktorym moze byc klucz
                 # podłączamy się do niego
-                print "Znaleziono serwer do get", key
                 d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
                 d1.addCallback(lambda p: p.callRemote(commands.Get, key=key))
 
                 def trapError(result):
                     result.trap(Exception)
-                    print "Błąd!: {0}".format(result.type)
                     raise result.type()
                 d1.addErrback(trapError)
                 
@@ -68,13 +61,11 @@ class Proto(amp.AMP):
         if node.hash == self.node.start: # to my będziemy przechowywać ten klucz
             print "Zapisano klucz-wartość"
             val = self.node.set(hash_key, value)
-            print "XX", val
             return {'status': val}
         else:
             d = self.server.find_node(hash_key, node.address, node.port) # szukamy odpowiedniego serwera, zwracamy deffer
             def callback(res): # res zawiera dane serwera na ktorym moze byc klucz
                 # podłączamy się do niego
-                print "Znaleziono serwer do set", key, value
                 d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
                 d1.addCallback(lambda p: p.callRemote(commands.Set, key=key, value=value))
                 return d1 # deffer, który zawierać będzie wynik metody set na właściwym serwerze
@@ -89,26 +80,22 @@ class Proto(amp.AMP):
         my_key = False
         if node.hash == self.node.start:
             my_key = True
-        print "in find", node
         return {'node' : dumps(node.hash), "address" : node.address, "port" : node.port, 'my_key' : my_key}
     commands.FindNode.responder(find)
     
     def new_node(self, key, address, port):
         key = loads(key)
-        print key
         node, db, stop = self.node.add_node(key, address, port)
         return {'db' : dumps(db), 'stop' : dumps(stop), 'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
     commands.NewNode.responder(new_node)
 
     def new_prev(self, node, address, port):
-        print "NEW_PREV", node
         node = loads(node)
         self.node.new_prev(node, address, port)
         return {'status': True}
     commands.NewPrev.responder(new_prev)
 
     def reveal(self):
-        print "Intorducing myself: ", self.me
         return {'hash': self.me}
     commands.RevealYourself.responder(reveal)
 
@@ -127,11 +114,9 @@ class Server(object):
         self.port = port
         
         self.key = Hash.from_str(address)
-        print "Serwer init KEY", self.key
         self.pf = ProtoFactory(str(self.key), self)
         if next_address and next_port:
             # server bedzie wlaczony do aktualnej sieci 
-            print "serwer init make_server"
             self.make_server(next_address, next_port)
         else:
             self.node = Node(self.address, self.port, self.key, self.key.prev())
@@ -140,7 +125,6 @@ class Server(object):
     def find_node(self, key, address=None, port=None):
         # find node nie moze byc wywolany jesli self.node jest node ktorego szukamy
         #
-        print "find node"
         if (address is None or port is None):
             if self.node is None:
                 return # moze jakis wyjatek tu trzeba rzucic
@@ -153,12 +137,8 @@ class Server(object):
         d = ClientCreator(reactor, amp.AMP).connectTCP(address, port)
         d.addCallback(lambda p: p.callRemote(commands.FindNode, key=dumps(key)))
         def callback(res):
-            print "Callback in find_node"
             res['node'] = loads(res['node'])
-            print "res", res
-            print key
             if res['my_key']:
-                print "XXX"
                 return res
             else:
                 return self.find_node(key, res['address'], res['port'])
@@ -170,15 +150,12 @@ class Server(object):
         d = self.find_node(self.key, address, port)
         # po znalezieniu odpowiedniego wezła
         def callback(res):
-            print "Znalazłem serwer"
             # podłączamy się do niego
             d1 = ClientCreator(reactor, amp.AMP).connectTCP(res['address'], res['port'])
             # oznajmiamy mu, że będziemy jego następnikiem
             d1.addCallback(lambda p: p.callRemote(commands.NewNode, key=dumps(self.key), address=self.address, port=self.port))
             def new_node(res2):
                 # dostajemy jego db, i nastepnika
-                print "NEW_NODE", loads(res2['node']),
-                print "NEW NODE2", res['node']
                 self.node = Node(self.address, self.port, 
                 self.key, loads(res2['stop']),
                     Neighbor(loads(res2['node']), res2['address'], res2['port']), 
@@ -198,7 +175,7 @@ class Server(object):
         return d
 
     def run(self):
-        print 'listening on port %d' % args.port
+        print 'nasłuchuje na porcie %d' % args.port
         reactor.listenTCP(self.port, self.pf)
         reactor.run()
 
@@ -209,11 +186,5 @@ if __name__ == '__main__':
         args.cport = int(args.cport)
     else:
         args.caddr = args.cport = None
-    print args
     server = Server(args.address, args.port, next_address=args.caddr, next_port=args.cport)
     server.run()
-    #h = Hash.from_hex(sha1(args.address).hexdigest())
-    #n = Node(h, h.prev())
-    #pf = ProtoFactory(str(n.start))
-    #reactor.listenTCP(args.port, pf)
-    #reactor.run()

@@ -1,8 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
-import hashlib
-
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
@@ -60,14 +58,12 @@ class CommandProtocol(basic.LineReceiver):
         
     def do_get(self, key):
         """get [klucz]: Zwraca wartość zachowaną pod danym kluczem"""
-        key = hashlib.sha1(str(key)).hexdigest()
         def callback(res):
             self.sendLine("Otrzymano: {0}".format(res['value']))
         self.client.addcall(commands.Get, callback=callback, key=key)
     
     def do_set(self, key, value):
         """set [klucz] [wartość]: Zapisuje wartość pod danym kluczem"""
-        key = hashlib.sha1(str(key)).hexdigest()
         def callback(res):
             if res['status']:
                 self.sendLine("Zapisano wartość")

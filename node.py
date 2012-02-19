@@ -57,12 +57,6 @@
 #
 # Nie mamy tolerowania awarii
 #
-# TODO tablica hashująca umożliwiająca łatwe podziały - 
-# kopiowanie wybranych fragmentów, tablica skrótów oraz przede 
-# wszystkim połączenie tego w sieć :). Myślałem o użyciu Twisted.
-# Tam chyba bardzo łatwo tworzyć klientów i serwery. Dodaktowo 
-# przy samej komunikacji można wymyślić jakiś protokół albo 
-# spróbować wykonać RPC
 
 import hashlib
 
@@ -175,7 +169,6 @@ class Node(object):
         self.start = start # start to takze adres maszyny
         self.stop = stop
         self.db = db
-        print "Node init", start, stop, self.db 
         self.im = Neighbor(start, address, port)
         
         if next:
@@ -230,21 +223,6 @@ class Node(object):
             self.stop = key.prev()
             return old_next, new_db, old_stop 
 
-    #def copy_db(self, node, start, stop):
-    #    """ Kopiuje do węzła node klucze z przedziału start - stop """
-    #    n.db.update(self.db.getall(start, stop))
-
-    #def shutdown(self):
-    #    """ Wyłącza węzeł """
-    #    self.copy_db(self.prev, self.start, self.stop)
-    #    self.prev.new_next(self, self.next)
-
-    #def new_next(self, node, next_node):
-    #    """ Przełącza się na nowego następnika, uaktualnia klucze """
-    #    self.next = Neighbor(*next_node)
-    #    self.stop = node.stop
-    #    self.next.new_prev(self)
-    
     def new_prev(self, node, address, port):
         """ Przełącza się na nowego poprzednika """
         self.prev = Neighbor(node, address, port)
