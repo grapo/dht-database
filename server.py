@@ -52,14 +52,14 @@ class Proto(amp.AMP):
     commands.FindNode.responder(find)
     
     def new_node(self, key, address, port):
-	key = loads(key)
+    key = loads(key)
         node, db, stop = self.node.add_node(key, address, port)
         return {'db' : dumps(db), 'stop' : dumps(stop), 'node' : dumps(node.hash), "address" : node.address, "port" : node.port}
     commands.NewNode.responder(new_node)
 
     def new_prev(self, node, address, port):
         self.node.new_prev(node, address, port)
-	return {'status': True}
+    return {'status': True}
     commands.NewPrev.responder(new_prev)
 
     def reveal(self):
@@ -124,10 +124,10 @@ class Server(object):
             def new_node(res2):
                 # dostajemy jego db, i nastepnika
                 self.node = Node(self.address, self.port, 
-			self.key, loads(res2['stop']),
-			Neighbor(res2['node'], res2['address'], res2['port']), 
-			Neighbor(res['node'], res['address'], res['port']),
-			loads(res2['db']))
+            self.key, loads(res2['stop']),
+            Neighbor(res2['node'], res2['address'], res2['port']), 
+            Neighbor(res['node'], res['address'], res['port']),
+            loads(res2['db']))
                 # dodajemy node do ProtoFactory bo tego mu brakuje
                 self.pf.node = self.node
                 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     args = parse_server()
     if args.connect:
         args.caddr, args.cport = args.connect.split(':')
-	args.cport = int(args.cport)
+    args.cport = int(args.cport)
     else:
         args.caddr = args.cport = None
     print args
