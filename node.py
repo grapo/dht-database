@@ -249,9 +249,9 @@ class Node(object):
 
 if __name__ == '__main__':
     import random
-    from args import parse_server
+    from args import parse_client
 
-    args = parse_server()
+    args = parse_client()
     h = Hash.from_str(random.random())
     n = Node(args.address, args.port, h, h.prev())
     k1 = Hash.from_str(random.random())
@@ -261,4 +261,5 @@ if __name__ == '__main__':
     print "Adding key: ", n.set(k2, "Key 2")
     print "Adding key: ", n.set(k3, "Key 3")
     print "Finding key: ", n.find(k2)
+    print "Finding key's node: ", n.find_node(k2)
     print "Getting database: ", n.add_node(k2, args.address, args.port)

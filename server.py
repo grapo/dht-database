@@ -99,7 +99,7 @@ class Server(object):
         # naszym następnikiem
         #
         d = ClientCreator(reactor, amp.AMP).connectTCP(address, port)
-        d.addCallback(lambda p: p.callRemote(commands.Find, key))
+        d.addCallback(lambda p: p.callRemote(commands.FindNode, key=key))
         def callback(res):
             if res['node'] == key:
                 return res
@@ -145,7 +145,13 @@ class Server(object):
 
 if __name__ == '__main__':
     args = parse_server()
-    server = Server(args.address, args.port)
+    if args.connect:
+        args.caddr, args.cport = args.connect.split(':')
+	args.cport = int(args.cport)
+    else:
+        args.caddr = args.cport = None
+    print args
+    server = Server(args.address, args.port, next_address=args.caddr, next_port=args.cport)
     server.run()
     #h = Hash.from_hex(sha1(args.address).hexdigest())
     #n = Node(h, h.prev())
